@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的虛擬桌遊櫃</title>
+<style>
+  :root{
+    --wood:#5a3d29;--wood-dark:#3d2818;--wood-light:#6e4d35;
+    --glass:rgba(150,190,210,.10);--gold:#d4a843;--text:#f3ece1;--panel:#2a1d12;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Helvetica Neue","PingFang TC","Microsoft JhengHei",sans-serif;background:#1c130c;color:var(--text);}
+  .topbar{background:linear-gradient(180deg,#2a1d12,#1c130c);padding:18px 24px;border-bottom:2px solid var(--gold);display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:50;}
+  .topbar h1{font-size:20px;margin:0;color:var(--gold);letter-spacing:1px;white-space:nowrap;}
+  .topbar .count{color:#bba;font-size:14px;}
+  .search-box{position:relative;flex:1;min-width:240px;max-width:520px;}
+  .search-box input{width:100%;padding:10px 14px;border-radius:24px;border:1px solid #6e4d35;background:#150e08;color:var(--text);font-size:15px;outline:none;}
+  .search-box input:focus{border-color:var(--gold);}
+  .filter-box input{padding:9px 14px;border-radius:24px;border:1px solid #6e4d35;background:#150e08;color:var(--text);font-size:14px;outline:none;width:160px;}
+  .results{position:absolute;top:48px;left:0;right:0;background:#221710;border:1px solid #6e4d35;border-radius:12px;max-height:360px;overflow-y:auto;z-index:60;box-shadow:0 12px 30px rgba(0,0,0,.5);}
+  .results .r{padding:11px 16px;cursor:pointer;border-bottom:1px solid #3a2818;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .results .r:hover{background:#33231590;}
+  .results .r .yr{color:#a89;font-size:13px;white-space:nowrap;}
+  .results .msg{padding:14px 16px;color:#bba;font-size:14px;}
+  .cabinet{max-width:1280px;margin:24px auto;padding:0 20px 60px;}
+  .shelf{background:linear-gradient(180deg,var(--wood-light),var(--wood) 60%,var(--wood-dark));border:6px solid var(--wood-dark);border-radius:6px;padding:18px 18px 0;margin-bottom:22px;box-shadow:inset 0 0 40px rgba(0,0,0,.5),0 10px 24px rgba(0,0,0,.4);position:relative;}
+  .shelf::after{content:"";position:absolute;inset:0;border-radius:4px;pointer-events:none;background:linear-gradient(115deg,var(--glass) 0%,transparent 30%,transparent 70%,var(--glass) 100%);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px;}
+  .game{background:#0d0906;border-radius:6px;overflow:hidden;cursor:pointer;border:1px solid #00000060;box-shadow:0 6px 14px rgba(0,0,0,.5);transition:transform .15s,box-shadow .15s;display:flex;flex-direction:column;}
+  .game:hover{transform:translateY(-6px) scale(1.03);box-shadow:0 14px 26px rgba(0,0,0,.6);}
+  .game .cover{width:100%;aspect-ratio:1/1;object-fit:cover;background:#241810;display:block;}
+  .game .cap{padding:8px 9px;font-size:13px;line-height:1.35;background:linear-gradient(180deg,#2a1d12,#1c130c);border-top:2px solid var(--gold);flex:1;}
+  .game .cap b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .game .cap small{color:#b9a890;font-size:11px;}
+  .game.loading .cover{display:flex;align-items:center;justify-content:center;color:#a89;font-size:13px;}
+  .empty{text-align:center;color:#9a8;padding:80px 20px;}
+  .empty h2{color:var(--gold);font-weight:500;}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+  .overlay.show{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--gold);border-radius:14px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.7);}
+  .modal-top{display:flex;gap:20px;padding:24px;flex-wrap:wrap;}
+  .modal-top img{width:180px;border-radius:8px;background:#241810;flex-shrink:0;object-fit:contain;}
+  .modal-info{flex:1;min-width:220px;}
+  .modal-info h2{margin:0 0 4px;color:var(--gold);font-size:22px;}
+  .modal-info .sub{color:#b9a890;font-size:14px;margin-bottom:16px;}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .stat{background:#1c130c;border-radius:8px;padding:10px 12px;}
+  .stat .label{font-size:11px;color:#9a8;text-transform:uppercase;letter-spacing:.5px;}
+  .stat .val{font-size:16px;color:var(--text);margin-top:2px;}
+  .meta-row{padding:0 24px 8px;font-size:14px;color:#cdbfa8;}
+  .meta-row b{color:var(--gold);font-weight:500;}
+  .modal-foot{padding:16px 24px 24px;display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;}
+  .btn{padding:9px 16px;border-radius:8px;border:1px solid #6e4d35;background:#2a1d12;color:var(--text);cursor:pointer;font-size:14px;}
+  .btn:hover{border-color:var(--gold);}
+  .btn.danger{border-color:#7a3030;color:#e69;}
+  .btn.danger:hover{background:#3a1818;}
+  a.bgg{color:var(--gold);text-decoration:none;font-size:13px;}
+  .weight-bar{height:6px;background:#1c130c;border-radius:3px;overflow:hidden;margin-top:6px;}
+  .weight-bar i{display:block;height:100%;background:linear-gradient(90deg,#5ab552,#d4a843,#c0392b);}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2a1d12;border:1px solid var(--gold);color:var(--text);padding:12px 20px;border-radius:24px;z-index:200;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🎲 我的桌遊櫃</h1>
+  <span class="count" id="count">0 款</span>
+  <div class="search-box">
+    <input id="search" type="text" placeholder="輸入桌遊英文名稱新增（如 Catan、Nemesis）… 按 Enter 搜尋" autocomplete="off">
+    <div class="results" id="results" style="display:none"></div>
+  </div>
+  <div class="filter-box"><input id="filter" type="text" placeholder="🔍 在收藏中查找…"></div>
+</div>
+
+<div class="cabinet">
+  <div class="shelf" id="shelf"><div class="grid" id="grid"></div></div>
+  <div class="empty" id="empty">
+    <h2>櫃子是空的</h2>
+    <p>在上方輸入你擁有的桌遊名稱，按 Enter 搜尋並加入收藏。</p>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY="myBoardgameShelf_v1";
+// 同源後端代理（Cloudflare Pages Function），無 CORS 問題
+const API="/api/bgg";
+let collection=load();
+
+function load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||[]}catch(e){return[]}}
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(collection))}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
+function esc(s){return(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function parseXML(t){return new DOMParser().parseFromString(t,"text/xml")}
+
+async function apiGet(endpoint,qs){
+  const res=await fetch(`${API}?endpoint=${endpoint}&qs=`+encodeURIComponent(qs));
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  return parseXML(await res.text());
+}
+
+async function bggSearch(query){
+  const xml=await apiGet("search","type=boardgame,boardgameexpansion&query="+encodeURIComponent(query));
+  return [...xml.querySelectorAll("item")].map(it=>({
+    id:it.getAttribute("id"),
+    name:(it.querySelector("name")||{}).getAttribute?.("value")||"未知",
+    year:(it.querySelector("yearpublished")||{}).getAttribute?.("value")||""
+  })).slice(0,30);
+}
+
+async function bggThing(id){
+  const xml=await apiGet("thing","stats=1&id="+id);
+  const item=xml.querySelector("item");
+  if(!item) throw new Error("無資料");
+  return extractThing(item);
+}
+
+function extractThing(item){
+  const attr=(sel,a="value")=>{const e=item.querySelector(sel);return e?e.getAttribute(a):""};
+  const links=t=>[...item.querySelectorAll('link[type="'+t+'"]')].map(l=>l.getAttribute("value"));
+  const primaryName=item.querySelector('name[type="primary"]')||item.querySelector("name");
+  const weight=parseFloat(attr("statistics ratings averageweight"))||0;
+  const rank=(()=>{const r=item.querySelector('rank[name="boardgame"]');const v=r&&r.getAttribute("value");return(v&&v!=="Not Ranked")?v:""})();
+  return{
+    id:item.getAttribute("id"),
+    name:primaryName?primaryName.getAttribute("value"):"未知",
+    year:attr("yearpublished"),
+    image:(item.querySelector("image")||{}).textContent||(item.querySelector("thumbnail")||{}).textContent||"",
+    minPlayers:attr("minplayers"),maxPlayers:attr("maxplayers"),
+    minTime:attr("minplaytime"),maxTime:attr("maxplaytime"),minAge:attr("minage"),
+    weight:weight,rating:parseFloat(attr("statistics ratings average"))||0,rank:rank,
+    designers:links("boardgamedesigner"),publishers:links("boardgamepublisher"),
+  };
+}
+
+function render(){
+  const grid=document.getElementById("grid"),empty=document.getElementById("empty"),shelf=document.getElementById("shelf");
+  const filter=(document.getElementById("filter").value||"").toLowerCase();
+  const list=collection.filter(g=>!filter||(g.name||"").toLowerCase().includes(filter));
+  document.getElementById("count").textContent=collection.length+" 款";
+  if(collection.length===0){empty.style.display="block";shelf.style.display="none";return;}
+  empty.style.display="none";shelf.style.display="block";grid.innerHTML="";
+  list.forEach(g=>{
+    const div=document.createElement("div");div.className="game"+(g.loading?" loading":"");
+    if(g.loading){
+      div.innerHTML=`<div class="cover">讀取中…</div><div class="cap"><b>${esc(g.name)}</b><small>取得 BGG 資料…</small></div>`;
+    }else{
+      div.innerHTML=`<img class="cover" src="${esc(g.image)}" alt="${esc(g.name)}" loading="lazy" onerror="this.style.background='#241810';this.removeAttribute('src');">
+        <div class="cap"><b title="${esc(g.name)}">${esc(g.name)}</b><small>${g.minPlayers}-${g.maxPlayers}人 · 難度 ${g.weight?g.weight.toFixed(1):"—"}</small></div>`;
+      div.onclick=()=>showDetail(g.id);
+    }
+    grid.appendChild(div);
+  });
+}
+
+function showDetail(id){
+  const g=collection.find(x=>x.id===id);if(!g)return;
+  const wPct=Math.min(100,(g.weight/5)*100);
+  const time=g.minTime===g.maxTime?g.minTime:g.minTime+"–"+g.maxTime;
+  document.getElementById("modal").innerHTML=`
+    <div class="modal-top">
+      <img src="${esc(g.image)}" alt="" onerror="this.style.visibility='hidden'">
+      <div class="modal-info">
+        <h2>${esc(g.name)}</h2>
+        <div class="sub">${g.year||""} ${g.rank?" · BGG 排名 #"+g.rank:""}</div>
+        <div class="stats">
+          <div class="stat"><div class="label">遊玩人數</div><div class="val">${g.minPlayers}–${g.maxPlayers} 人</div></div>
+          <div class="stat"><div class="label">遊戲時間</div><div class="val">${time||"—"} 分</div></div>
+          <div class="stat"><div class="label">建議年齡</div><div class="val">${g.minAge?g.minAge+"+":"—"}</div></div>
+          <div class="stat"><div class="label">BGG 評分</div><div class="val">${g.rating?g.rating.toFixed(1):"—"} / 10</div></div>
+        </div>
+        <div class="stat" style="margin-top:10px">
+          <div class="label">遊戲難度（複雜度 / 5）</div>
+          <div class="val">${g.weight?g.weight.toFixed(2):"—"}</div>
+          <div class="weight-bar"><i style="width:${wPct}%"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="meta-row"><b>設計師：</b>${g.designers&&g.designers.length?esc(g.designers.join("、")):"—"}</div>
+    <div class="meta-row"><b>出版社：</b>${g.publishers&&g.publishers.length?esc(g.publishers.slice(0,6).join("、")):"—"}</div>
+    <div class="modal-foot">
+      <a class="bgg" href="https://boardgamegeek.com/boardgame/${g.id}" target="_blank">在 BGG 查看 ↗</a>
+      <div><button class="btn" onclick="closeModal()">關閉</button>
+      <button class="btn danger" onclick="removeGame('${g.id}')">移除收藏</button></div>
+    </div>`;
+  document.getElementById("overlay").classList.add("show");
+}
+function closeModal(){document.getElementById("overlay").classList.remove("show")}
+document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")closeModal()};
+function removeGame(id){collection=collection.filter(g=>g.id!==id);save();render();closeModal();toast("已移除");}
+
+async function addGame(id,fallbackName){
+  if(collection.find(g=>g.id===id)){toast("這款已經在櫃子裡了");return;}
+  const stub={id,name:fallbackName||"讀取中…",loading:true};
+  collection.push(stub);save();render();
+  try{
+    const data=await bggThing(id);Object.assign(stub,data);stub.loading=false;
+    save();render();toast("已加入："+stub.name);
+  }catch(e){
+    collection=collection.filter(g=>g.id!==id);save();render();toast("讀取失敗，請稍後再試");
+  }
+}
+
+const searchEl=document.getElementById("search"),resultsEl=document.getElementById("results");
+async function doSearch(){
+  const q=searchEl.value.trim();if(!q)return;
+  resultsEl.style.display="block";resultsEl.innerHTML='<div class="msg">搜尋中…</div>';
+  try{
+    const items=await bggSearch(q);
+    if(!items.length){resultsEl.innerHTML='<div class="msg">查無結果，建議用英文原名再試。</div>';return;}
+    resultsEl.innerHTML="";
+    items.forEach(it=>{
+      const d=document.createElement("div");d.className="r";
+      d.innerHTML=`<span>${esc(it.name)}</span><span class="yr">${it.year||""}</span>`;
+      d.onclick=()=>{addGame(it.id,it.name);resultsEl.style.display="none";searchEl.value="";};
+      resultsEl.appendChild(d);
+    });
+  }catch(e){resultsEl.innerHTML='<div class="msg">搜尋失敗，請稍後再試。</div>';}
+}
+searchEl.addEventListener("keydown",e=>{if(e.key==="Enter")doSearch()});
+document.addEventListener("click",e=>{if(!resultsEl.contains(e.target)&&e.target!==searchEl)resultsEl.style.display="none"});
+document.getElementById("filter").addEventListener("input",render);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
+render();
+</script>
+</body>
+</html>
